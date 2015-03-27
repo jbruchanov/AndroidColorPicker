@@ -48,7 +48,7 @@ public class GradientView extends View {
     private int mSelectedColor = 0;
     private boolean mIsBrightnessGradient = false;
     private int[] mSelectedColorGradient = new int[]{mSelectedColor, Color.BLACK};
-    private int mLastX;
+    private int mLastX = Integer.MIN_VALUE;
     private int mLastY;
     private Drawable mPointerDrawable;
     private int mPointerHeight;
@@ -312,12 +312,13 @@ public class GradientView extends View {
             mSelectedColorGradient[0] = selectedColor;
             mSelectedColor = Color.HSVToColor(mHSV);
             buildShaders();
-            mHSV[2] = pointToValueBrightness(mLastX);
-            selectedColor = Color.HSVToColor(mHSV);
-        } else {
-            if (updatePointers) {
-                updatePointerPosition();
+            if (mLastX != Integer.MIN_VALUE) {
+                mHSV[2] = pointToValueBrightness(mLastX);
             }
+            selectedColor = Color.HSVToColor(mHSV);
+        }
+        if (updatePointers) {
+            updatePointerPosition();
         }
         mSelectedColor = selectedColor;
         invalidate();
@@ -326,8 +327,12 @@ public class GradientView extends View {
 
     private void updatePointerPosition() {
         if (mRect.width() != 0 && mRect.height() != 0) {
-            mLastX = hueToPoint(mHSV[0]);
-            mLastY = saturationToPoint(mHSV[1]);
+            if (!mIsBrightnessGradient) {
+                mLastX = hueToPoint(mHSV[0]);
+                mLastY = saturationToPoint(mHSV[1]);
+            } else {
+                mLastX = brightnessToPoint(mHSV[2]);
+            }
         }
     }
 
@@ -385,6 +390,11 @@ public class GradientView extends View {
     private float pointToValueBrightness(float x) {
         x = x - mRect.left;
         return 1 - (1.f / mRect.width() * x);
+    }
+
+    private int brightnessToPoint(float val) {
+        val = 1 - val;
+        return (int) (mRect.left + (mRect.width() * val));
     }
 
     public void setPointerDrawable(Drawable pointerDrawable) {
