@@ -25,7 +25,6 @@ import android.view.View;
 @SuppressWarnings("unused")
 public class GradientView extends View {
 
-
     public interface OnColorChangedListener {
         void onColorChanged(GradientView view, int color);
     }
@@ -36,21 +35,23 @@ public class GradientView extends View {
     private static final int[] GRAD_ALPHA = new int[]{Color.WHITE, Color.TRANSPARENT};
 
     private GradientView mBrightnessGradientView;
+    private Shader mShader;
+    private Drawable mPointerDrawable;
     private Paint mPaint;
     private Paint mDebugPaint;
     private Paint mPaintBackground;
-    private RectF mRect = new RectF();
-    private Shader mShader;
+    private RectF mGradientRect = new RectF();
+
     private int[] mGradColors = GRAD_COLORS;
     private int[] mGradAlpha = GRAD_ALPHA;
     private float[] mHSV = new float[]{1f, 1f, 1f};
+
+    private int[] mSelectedColorGradient = new int[]{0, Color.BLACK};
     private float mRadius = 0;
     private int mSelectedColor = 0;
     private boolean mIsBrightnessGradient = false;
-    private int[] mSelectedColorGradient = new int[]{mSelectedColor, Color.BLACK};
     private int mLastX = Integer.MIN_VALUE;
     private int mLastY;
-    private Drawable mPointerDrawable;
     private int mPointerHeight;
     private int mPointerWidth;
 
@@ -157,8 +158,8 @@ public class GradientView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (mShader != null) {
-            canvas.drawRoundRect(mRect, mRadius, mRadius, mPaintBackground);
-            canvas.drawRoundRect(mRect, mRadius, mRadius, mPaint);
+            canvas.drawRoundRect(mGradientRect, mRadius, mRadius, mPaintBackground);
+            canvas.drawRoundRect(mGradientRect, mRadius, mRadius, mPaint);
         }
 
         if (DEBUG) {
@@ -166,9 +167,9 @@ public class GradientView extends View {
             float width = mPaint.measureText(color);
             mDebugPaint.setColor(mSelectedColor);
             mDebugPaint.setStyle(Paint.Style.FILL);
-            canvas.drawRect(0, mRect.bottom - mDebugPaint.getTextSize(), getWidth(), mRect.bottom, mDebugPaint);
+            canvas.drawRect(0, mGradientRect.bottom - mDebugPaint.getTextSize(), getWidth(), mGradientRect.bottom, mDebugPaint);
             mDebugPaint.setColor(Color.BLACK);
-            canvas.drawText(color, 0, mRect.bottom, mDebugPaint);
+            canvas.drawText(color, 0, mGradientRect.bottom, mDebugPaint);
         }
 
         if (mPointerDrawable != null) {
@@ -177,8 +178,8 @@ public class GradientView extends View {
             if (!mIsBrightnessGradient) {
                 int tx = mLastX - pwh;
                 int ty = mLastY - phh;
-                tx = (int) Math.max(mRect.left - pwh, Math.min(tx, mRect.right - pwh));
-                ty = (int) Math.max(mRect.top - pwh, Math.min(ty, mRect.bottom - phh));
+                tx = (int) Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
+                ty = (int) Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
                 canvas.translate(tx, ty);
                 mPointerDrawable.draw(canvas);
                 canvas.translate(-tx, -ty);
@@ -186,8 +187,8 @@ public class GradientView extends View {
                 int height = getHeight();
                 int tx = mLastX - pwh;
                 int ty = mPointerHeight != mPointerDrawable.getIntrinsicHeight() ? (height >> 1) - phh : 0;
-                tx = (int) Math.max(mRect.left - pwh, Math.min(tx, mRect.right - pwh));
-                ty = (int) Math.max(mRect.top - pwh, Math.min(ty, mRect.bottom - phh));
+                tx = (int) Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
+                ty = (int) Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
                 canvas.translate(tx, ty);
                 mPointerDrawable.draw(canvas);
                 canvas.translate(-tx, -ty);
@@ -198,13 +199,13 @@ public class GradientView extends View {
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-        mRect.set(getPaddingLeft(), getPaddingTop(), right - left - getPaddingRight(), bottom - top - getPaddingBottom());
+        mGradientRect.set(getPaddingLeft(), getPaddingTop(), right - left - getPaddingRight(), bottom - top - getPaddingBottom());
         if (changed) {
             buildShaders();
         }
 
         if (mPointerDrawable != null) {
-            int h = (int) mRect.height();
+            int h = (int) mGradientRect.height();
             int ph = mPointerDrawable.getIntrinsicHeight();
             int pw = mPointerDrawable.getIntrinsicWidth();
             mPointerHeight = ph;
@@ -220,15 +221,19 @@ public class GradientView extends View {
 
     private void buildShaders() {
         if (mIsBrightnessGradient) {
-            mShader = new LinearGradient(mRect.left, mRect.top, mRect.right, mRect.top /* simple line gradient*/, mSelectedColorGradient, null, Shader.TileMode.CLAMP);
+            mShader = new LinearGradient(mGradientRect.left, mGradientRect.top, mGradientRect.right, mGradientRect.top /* simple line gradient*/, mSelectedColorGradient, null, Shader.TileMode.CLAMP);
         } else {
-            LinearGradient gradientShader = new LinearGradient(mRect.left, mRect.top, mRect.right, mRect.top /* simple line gradient*/, GRAD_COLORS, null, Shader.TileMode.CLAMP);
-            LinearGradient alphaShader = new LinearGradient(0, mRect.top + (mRect.height() / 3) /* don't start at 0px*/, 0, mRect.bottom, GRAD_ALPHA, null, Shader.TileMode.CLAMP);
+            LinearGradient gradientShader = new LinearGradient(mGradientRect.left, mGradientRect.top, mGradientRect.right, mGradientRect.top /* simple line gradient*/, GRAD_COLORS, null, Shader.TileMode.CLAMP);
+            LinearGradient alphaShader = new LinearGradient(0, mGradientRect.top + (mGradientRect.height() / 3) /* don't start at 0px*/, 0, mGradientRect.bottom, GRAD_ALPHA, null, Shader.TileMode.CLAMP);
             mShader = new ComposeShader(alphaShader, gradientShader, PorterDuff.Mode.MULTIPLY);
         }
         mPaint.setShader(mShader);
     }
 
+    /**
+     * Set radius for gradient rectangle
+     * @param radius
+     */
     public void setRadius(float radius) {
         if(radius != mRadius) {
             mRadius = radius;
@@ -246,12 +251,8 @@ public class GradientView extends View {
         mLastX = (int) event.getX();
         mLastY = (int) event.getY();
         onUpdateColorSelection(mLastX, mLastY);
-        if (DEBUG) {
-            invalidate();
-        } else {
-            invalidate();
-        }
-        switch (event.getAction()){
+        invalidate();
+        switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 getParent().requestDisallowInterceptTouchEvent(true);
                 break;
@@ -263,9 +264,14 @@ public class GradientView extends View {
         return super.onTouchEvent(event);
     }
 
+    /**
+     * Update color based on touch events
+     * @param x
+     * @param y
+     */
     protected void onUpdateColorSelection(int x, int y) {
-        x = (int) Math.max(mRect.left, Math.min(x, mRect.right));
-        y = (int) Math.max(mRect.top, Math.min(y, mRect.bottom));
+        x = (int) Math.max(mGradientRect.left, Math.min(x, mGradientRect.right));
+        y = (int) Math.max(mGradientRect.top, Math.min(y, mGradientRect.bottom));
         if (mIsBrightnessGradient) {
             float b = pointToValueBrightness(x);
             mHSV[2] = b;
@@ -290,18 +296,26 @@ public class GradientView extends View {
         }
     }
 
-    public boolean getBrightnessGradientView() {
-        return mIsBrightnessGradient;
-    }
-
+    /**
+     * Switch view into brightness gradient only
+     * @param isBrightnessGradient
+     */
     public void setIsBrightnessGradient(boolean isBrightnessGradient) {
         mIsBrightnessGradient = isBrightnessGradient;
     }
 
+    /**
+     * Get current selectec color
+     * @return
+     */
     public int getSelectedColor() {
         return mSelectedColor;
     }
 
+    /**
+     * Update current color
+     * @param selectedColor
+     */
     public void setColor(int selectedColor) {
         setColor(selectedColor, true);
     }
@@ -326,7 +340,7 @@ public class GradientView extends View {
     }
 
     private void updatePointerPosition() {
-        if (mRect.width() != 0 && mRect.height() != 0) {
+        if (mGradientRect.width() != 0 && mGradientRect.height() != 0) {
             if (!mIsBrightnessGradient) {
                 mLastX = hueToPoint(mHSV[0]);
                 mLastY = saturationToPoint(mHSV[1]);
@@ -336,6 +350,10 @@ public class GradientView extends View {
         }
     }
 
+    /**
+     * Add reference for brightness view
+     * @param brightnessGradient
+     */
     public void setBrightnessGradientView(GradientView brightnessGradient) {
         if (mBrightnessGradientView != brightnessGradient) {
             mBrightnessGradientView = brightnessGradient;
@@ -351,18 +369,19 @@ public class GradientView extends View {
         mOnColorChangedListener = onColorChangedListener;
     }
 
+    //region HSL math
     /**
      *
      * @param x x coordinate of gradient
      * @return
      */
     private float pointToHue(float x) {
-        x = x - mRect.left;
-        return x * 360f / mRect.width();
+        x = x - mGradientRect.left;
+        return x * 360f / mGradientRect.width();
     }
 
     private int hueToPoint(float hue) {
-        return (int)(mRect.left + ((hue * mRect.width()) / 360));
+        return (int)(mGradientRect.left + ((hue * mGradientRect.width()) / 360));
     }
 
     /**
@@ -372,13 +391,13 @@ public class GradientView extends View {
      * @return
      */
     private float pointToSaturation(float y) {
-        y = y - mRect.top;
-        return 1 - (1.f / mRect.height() * y);
+        y = y - mGradientRect.top;
+        return 1 - (1.f / mGradientRect.height() * y);
     }
 
     private int saturationToPoint(float sat) {
         sat = 1 - sat;
-        return (int) (mRect.top + (mRect.height() * sat));
+        return (int) (mGradientRect.top + (mGradientRect.height() * sat));
     }
 
     /**
@@ -388,14 +407,15 @@ public class GradientView extends View {
      * @return
      */
     private float pointToValueBrightness(float x) {
-        x = x - mRect.left;
-        return 1 - (1.f / mRect.width() * x);
+        x = x - mGradientRect.left;
+        return 1 - (1.f / mGradientRect.width() * x);
     }
 
     private int brightnessToPoint(float val) {
         val = 1 - val;
-        return (int) (mRect.left + (mRect.width() * val));
+        return (int) (mGradientRect.left + (mGradientRect.width() * val));
     }
+    //endregion HSL math
 
     public void setPointerDrawable(Drawable pointerDrawable) {
         if (mPointerDrawable != pointerDrawable) {
