@@ -54,6 +54,7 @@ public class GradientView extends View {
     private int mLastY;
     private int mPointerHeight;
     private int mPointerWidth;
+    private boolean mLockPointerInBounds = false;
 
     private OnColorChangedListener mOnColorChangedListener;
 
@@ -86,7 +87,7 @@ public class GradientView extends View {
         setLayerType(View.LAYER_TYPE_SOFTWARE, isInEditMode() ? null : mPaint);
         mRadius = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics());
 
-        if(DEBUG){
+        if (DEBUG) {
             mDebugPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             mDebugPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20, getResources().getDisplayMetrics()));
         }
@@ -101,6 +102,9 @@ public class GradientView extends View {
                         break;
                     case R.styleable.GradientView_pointerDrawable:
                         setPointerDrawable(typedArray.getDrawable(index));
+                        break;
+                    case R.styleable.GradientView_lockPointerInBounds:
+                        setLockPointerInBounds(typedArray.getBoolean(index, false));
                 }
             }
             typedArray.recycle();
@@ -171,28 +175,40 @@ public class GradientView extends View {
             mDebugPaint.setColor(Color.BLACK);
             canvas.drawText(color, 0, mGradientRect.bottom, mDebugPaint);
         }
+        onDrawPointer(canvas);
 
+    }
+
+    private void onDrawPointer(Canvas canvas){
         if (mPointerDrawable != null) {
+            int vh = getHeight();
             int pwh = mPointerWidth >> 1;
             int phh = mPointerHeight >> 1;
+            float tx, ty;
             if (!mIsBrightnessGradient) {
-                int tx = mLastX - pwh;
-                int ty = mLastY - phh;
-                tx = (int) Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
-                ty = (int) Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
-                canvas.translate(tx, ty);
-                mPointerDrawable.draw(canvas);
-                canvas.translate(-tx, -ty);
+                tx = mLastX - pwh;
+                ty = mLastY - phh;
+                if (mLockPointerInBounds) {
+                    tx = Math.max(mGradientRect.left, Math.min(tx, mGradientRect.right - mPointerWidth));
+                    ty = Math.max(mGradientRect.top, Math.min(ty, mGradientRect.bottom - mPointerHeight));
+                } else {
+                    tx = Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
+                    ty = Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
+                }
             } else {//vertical lock
-                int height = getHeight();
-                int tx = mLastX - pwh;
-                int ty = mPointerHeight != mPointerDrawable.getIntrinsicHeight() ? (height >> 1) - phh : 0;
-                tx = (int) Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
-                ty = (int) Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
-                canvas.translate(tx, ty);
-                mPointerDrawable.draw(canvas);
-                canvas.translate(-tx, -ty);
+                tx = mLastX - pwh;
+                ty = mPointerHeight != mPointerDrawable.getIntrinsicHeight() ? (vh >> 1) - phh : 0;
+                if (mLockPointerInBounds) {
+                    tx = Math.max(mGradientRect.left, Math.min(tx, mGradientRect.right - mPointerWidth));
+                    ty = Math.max(mGradientRect.top, Math.min(ty, mGradientRect.bottom - mPointerHeight));
+                } else {
+                    tx = Math.max(mGradientRect.left - pwh, Math.min(tx, mGradientRect.right - pwh));
+                    ty = Math.max(mGradientRect.top - pwh, Math.min(ty, mGradientRect.bottom - phh));
+                }
             }
+            canvas.translate(tx, ty);
+            mPointerDrawable.draw(canvas);
+            canvas.translate(-tx, -ty);
         }
     }
 
@@ -212,7 +228,7 @@ public class GradientView extends View {
             mPointerWidth = pw;
             if (h < ph) {
                 mPointerHeight = h;
-                mPointerWidth = h * (ph / pw);
+                mPointerWidth = (int) (pw * (h / (float)ph));
             }
             mPointerDrawable.setBounds(0, 0, mPointerWidth, mPointerHeight);
             updatePointerPosition();
@@ -422,6 +438,17 @@ public class GradientView extends View {
             mPointerDrawable = pointerDrawable;
             requestLayout();
         }
+    }
+
+    public void setLockPointerInBounds(boolean lockPointerInBounds) {
+        if (lockPointerInBounds != mLockPointerInBounds) {
+            mLockPointerInBounds = lockPointerInBounds;
+            invalidate();
+        }
+    }
+
+    public boolean isLockedPointerInBounds() {
+        return mLockPointerInBounds;
     }
 
     @Override
