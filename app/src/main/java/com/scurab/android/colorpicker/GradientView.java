@@ -105,6 +105,7 @@ public class GradientView extends View {
                         break;
                     case R.styleable.GradientView_lockPointerInBounds:
                         setLockPointerInBounds(typedArray.getBoolean(index, false));
+                        break;
                 }
             }
             typedArray.recycle();
@@ -297,6 +298,7 @@ public class GradientView extends View {
             float sat = pointToSaturation(y);
             mHSV[0] = hue;
             mHSV[1] = sat;
+            mHSV[2] = 1f;
             mSelectedColor = Color.HSVToColor(mHSV);
         }
         dispatchColorChanged(mSelectedColor);
@@ -339,7 +341,7 @@ public class GradientView extends View {
     protected void setColor(int selectedColor, boolean updatePointers) {
         Color.colorToHSV(selectedColor, mHSV);
         if (mIsBrightnessGradient) {
-            mSelectedColorGradient[0] = selectedColor;
+            mSelectedColorGradient[0] = getColorForGradient(mHSV);
             mSelectedColor = Color.HSVToColor(mHSV);
             buildShaders();
             if (mLastX != Integer.MIN_VALUE) {
@@ -353,6 +355,23 @@ public class GradientView extends View {
         mSelectedColor = selectedColor;
         invalidate();
         dispatchColorChanged(mSelectedColor);
+    }
+
+    /**
+     * Get start color for gradient
+     * @param hsv
+     * @return
+     */
+    private int getColorForGradient(float[] hsv) {
+        if (hsv[2] != 1f) {
+            float oldV = hsv[2];
+            hsv[2] = 1;
+            int color = Color.HSVToColor(hsv);
+            hsv[2] = oldV;
+            return color;
+        }else{
+            return Color.HSVToColor(hsv);
+        }
     }
 
     private void updatePointerPosition() {
